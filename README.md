@@ -56,7 +56,7 @@ Defines a UI function that takes a UI generator and returns an object with an ad
 
 | Function | Type |
 | ---------- | ---------- |
-| `default` | `(generator: UIGenerator) => { add(): void; }` |
+| `default` | `(generator: UIGenerator) => UIManager` |
 
 Parameters:
 
