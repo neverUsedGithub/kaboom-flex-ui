@@ -1,4 +1,16 @@
-import { AreaComp, Color, GameObj, PosComp, RectComp, TextComp, TextCompOpt } from "kaboom";
+import kaboom, {
+    AreaComp,
+    Color,
+    ColorComp,
+    EventController,
+    GameObj,
+    OutlineComp,
+    PosComp,
+    RectComp,
+    TextComp,
+    TextCompOpt,
+    ZComp,
+} from "kaboom";
 
 /**
  * Represents attributes for a UI box element.
@@ -14,6 +26,8 @@ export interface UIBoxAttributes {
     height: number | undefined;
     width: number | undefined;
     borderRadius: number;
+    outline: Color | undefined;
+    outlineWidth: number;
 }
 
 /**
@@ -30,7 +44,14 @@ export interface UITextAttributes {
  * Represents attributes for a UI button element, extending UI box attributes.
  */
 export interface UIButtonAttributes extends Partial<UIBoxAttributes> {
-    onClick: () => any;
+    text?: Partial<UITextAttributes>;
+
+    onClick?: (this: UIBoxListenerThis) => any;
+    onMouseDown?: (this: UIBoxListenerThis) => any;
+    onMouseRelease?: (this: UIBoxListenerThis) => any;
+    onHover?: (this: UIBoxListenerThis) => any;
+    onHoverEnd?: (this: UIBoxListenerThis) => any;
+    onHoverUpdate?: (this: UIBoxListenerThis) => any;
 }
 
 /**
@@ -38,46 +59,84 @@ export interface UIButtonAttributes extends Partial<UIBoxAttributes> {
  */
 export type UIElement = UIBoxElement | UITextElement;
 
+export type UIBoxListenerThis = { style: (attrs: Partial<UIBoxAttributes>) => void };
+
+export interface UIManager {
+    add: (parent?: GameObj) => void;
+    readd: () => void;
+    remove: () => void;
+}
+
+const getDefaultTextProperties: () => UITextAttributes = () => ({
+    color: rgb(0, 0, 0),
+    fontFamily: undefined,
+    lineHeight: 0.9,
+    fontSize: 30,
+});
+
 /**
  * Represents a UI text element with specified attributes.
  */
 class UITextElement {
     public attrs: UITextAttributes;
+    public kaboomObject: GameObj<PosComp | ColorComp | ZComp | TextComp> | null = null;
+    private parent: UIManager | null;
 
     constructor(attrs: Partial<UITextAttributes>, public text: string) {
-        const defaultTextProperties: UITextAttributes = {
-            color: rgb(0, 0, 0),
-            fontFamily: undefined,
-            lineHeight: 0.9,
-            fontSize: 30,
-        };
+        this.attrs = Object.assign({}, getDefaultTextProperties(), attrs);
+        this.parent = null;
+    }
 
-        this.attrs = Object.assign({}, defaultTextProperties, attrs);
+    setParent(parent: UIManager) {
+        this.parent = parent;
+    }
+
+    style(newAttributes: Partial<UITextAttributes>) {
+        this.attrs = Object.assign({}, this.attrs, newAttributes);
+        if (!this.parent) throw new Error("no parent?");
+        this.parent.readd();
     }
 }
+
+const getDefaultBoxProperties: () => UIBoxAttributes = () => ({
+    alignX: "left",
+    alignY: "top",
+    flow: "x",
+    background: rgb(255, 255, 255),
+    fit: false,
+    gap: 0,
+    padding: { left: 0, right: 0, top: 0, bottom: 0 },
+    outline: undefined,
+    outlineWidth: 0,
+    height: undefined,
+    width: undefined,
+    borderRadius: 0,
+});
 
 /**
  * Represents a UI box element with specified attributes and children elements.
  */
 class UIBoxElement {
     public attrs: UIBoxAttributes;
+    public kaboomObject: GameObj<
+        | PosComp
+        | RectComp
+        | ColorComp
+        | ZComp
+        | OutlineComp
+        | AreaComp
+        | {
+              uiElement: UIBoxElement;
+          }
+    > | null = null;
     private eventListeners: Record<string, ((...args: any) => any)[]> = {};
+    private isClicking: boolean = false;
+    private isHovering: boolean = false;
+    private parent: UIManager | null = null;
+    private lastController: EventController | null = null;
 
     constructor(attrs: Partial<UIBoxAttributes>, public children: UIElement[]) {
-        const defaultBoxProperties: UIBoxAttributes = {
-            alignX: "left",
-            alignY: "top",
-            flow: "x",
-            background: rgb(255, 255, 255),
-            fit: false,
-            gap: 0,
-            padding: { left: 0, right: 0, top: 0, bottom: 0 },
-            height: undefined,
-            width: undefined,
-            borderRadius: 0,
-        };
-
-        this.attrs = Object.assign({}, defaultBoxProperties, attrs);
+        this.attrs = Object.assign({}, getDefaultBoxProperties(), attrs);
     }
 
     private addListener(event: string, listener: (...args: any) => any) {
@@ -85,17 +144,29 @@ class UIBoxElement {
         this.eventListeners[event].push(listener);
     }
 
-    private triggerListener(event: string, ...args: any) {
-        if (event in this.eventListeners) for (const listener of this.eventListeners[event]) listener(args);
+    triggerListener(event: string, ...args: any) {
+        if (event in this.eventListeners) for (const listener of this.eventListeners[event]) listener.bind(this)(args);
     }
 
-    onClick(callback: () => any) {
-        this.addListener("click", callback);
+    setParent(parent: UIManager) {
+        this.parent = parent;
+    }
+
+    style(newAttributes: Partial<UIBoxAttributes>) {
+        this.attrs = Object.assign({}, this.attrs, newAttributes);
+        if (!this.parent) throw new Error("no parent?");
+        this.parent.readd();
+    }
+
+    on(event: "hover", callback: (this: UIBoxListenerThis) => any): this;
+    on(event: "hoverend", callback: (this: UIBoxListenerThis) => any): this;
+    on(event: "hoverupdate", callback: (this: UIBoxListenerThis) => any): this;
+    on(event: "click", callback: (this: UIBoxListenerThis) => any): this;
+    on(event: "mousedown", callback: (this: UIBoxListenerThis) => any): this;
+    on(event: "mouseup", callback: (this: UIBoxListenerThis) => any): this;
+    on(event: string, callback: (this: UIBoxListenerThis) => any) {
+        this.addListener(event, callback);
         return this;
-    }
-
-    mountTo(gameObject: GameObj<AreaComp>) {
-        gameObject.onClick(() => this.triggerListener("click"));
     }
 }
 
@@ -158,6 +229,7 @@ function calculateMinHeight(element: UIElement): number {
 }
 
 function addElement(
+    ctx: UIManager,
     parent: GameObj,
     element: UIElement,
     depth: number = 0,
@@ -166,6 +238,8 @@ function addElement(
     elementWidth?: number,
     elementHeight?: number
 ): GameObj<PosComp | RectComp> {
+    element.setParent(ctx);
+
     if (element instanceof UIBoxElement) {
         const paddingTop =
             typeof element.attrs.padding === "number" ? element.attrs.padding : element.attrs.padding.top;
@@ -185,17 +259,39 @@ function addElement(
         if (selfHeight < minHeight) selfHeight = minHeight;
         if (selfWidth < minWidth) selfWidth = minWidth;
 
-        const boxObj = parent.add([
-            pos(elementX ?? 0, elementY ?? 0),
-            color(element.attrs.background),
-            rect(selfWidth, selfHeight, {
-                radius: element.attrs.borderRadius,
-            }),
-            z(depth),
-            area(),
-        ]);
+        if (!element.kaboomObject) {
+            element.kaboomObject = parent.add([
+                pos(elementX ?? 0, elementY ?? 0),
+                color(element.attrs.background),
+                rect(selfWidth, selfHeight, {
+                    radius: element.attrs.borderRadius,
+                }),
+                z(depth),
+                outline(element.attrs.outlineWidth, element.attrs.outline),
+                area(),
+                { uiElement: element },
+                "kaboom-flex-ui-element",
+            ]);
 
-        element.mountTo(boxObj);
+            element.kaboomObject.onClick(() => element.triggerListener("click"));
+            element.kaboomObject.onHover(() => element.triggerListener("hover"));
+            element.kaboomObject.onHoverEnd(() => element.triggerListener("hoverend"));
+            element.kaboomObject.onMouseDown(() => element.triggerListener("mousedown"));
+            element.kaboomObject.onMousePress(() => element.triggerListener("mousepress"));
+            element.kaboomObject.onMouseRelease(() => element.triggerListener("mouseup"));
+            element.kaboomObject.onHoverUpdate(() => element.triggerListener("hoverupdate"));
+        } else {
+            element.kaboomObject.pos.x = elementX ?? 0;
+            element.kaboomObject.pos.y = elementY ?? 0;
+            element.kaboomObject.color = element.attrs.background;
+            element.kaboomObject.width = selfWidth;
+            element.kaboomObject.height = selfHeight;
+            element.kaboomObject.radius = element.attrs.borderRadius;
+            element.kaboomObject.z = depth;
+
+            if (element.attrs.outline) element.kaboomObject.outline.color = element.attrs.outline;
+            if (element.attrs.outlineWidth) element.kaboomObject.outline.width = element.attrs.outlineWidth;
+        }
 
         if (element.attrs.flow === "x") {
             let xInset = paddingLeft;
@@ -236,7 +332,16 @@ function addElement(
                 }
 
                 xInset += childWidth + element.attrs.gap;
-                addElement(boxObj, element.children[i], depth + 1, childX, childY, childWidth, childHeight);
+                addElement(
+                    ctx,
+                    element.kaboomObject,
+                    element.children[i],
+                    depth + 1,
+                    childX,
+                    childY,
+                    childWidth,
+                    childHeight
+                );
             }
         } else {
             let yInset = paddingTop;
@@ -277,18 +382,35 @@ function addElement(
                 }
 
                 yInset += childHeight + element.attrs.gap;
-                addElement(boxObj, element.children[i], depth + 1, childX, childY, childWidth, childHeight);
+                addElement(
+                    ctx,
+                    element.kaboomObject,
+                    element.children[i],
+                    depth + 1,
+                    childX,
+                    childY,
+                    childWidth,
+                    childHeight
+                );
             }
         }
 
-        return boxObj;
+        return element.kaboomObject;
     } else {
-        return parent.add([
-            text(element.text, getTextOptions(element)),
-            color(element.attrs.color),
-            pos(elementX, elementY),
-            z(depth),
-        ]);
+        if (!element.kaboomObject) {
+            element.kaboomObject = parent.add([
+                text(element.text, getTextOptions(element)),
+                color(element.attrs.color),
+                pos(elementX, elementY),
+                z(depth),
+            ]);
+        } else {
+            element.kaboomObject.text = element.text;
+            element.kaboomObject.color = element.attrs.color;
+            element.kaboomObject.textSize = element.attrs.fontSize;
+            if (element.attrs.fontFamily) element.kaboomObject.font = element.attrs.fontFamily;
+        }
+        return element.kaboomObject;
     }
 }
 
@@ -297,15 +419,47 @@ function addElement(
  * @param generator The UI generator function.
  * @returns An object with an add method.
  */
-export default function ui(generator: UIGenerator) {
+export default function ui(generator: UIGenerator): UIManager {
+    let uiTree: UIElement;
+    let lastRoot: GameObj | null;
+
     return {
-        add() {
-            const uiTree = generator();
-            const uiRoot = make([]);
+        add(parent) {
+            if (lastRoot) return this.readd();
+            if (!uiTree) uiTree = generator();
 
-            addElement(uiRoot, uiTree, 1000, 0, 0);
+            const uiRoot = make([fixed(), pos(0, 0)]);
 
-            add(uiRoot);
+            addElement(this, uiRoot, uiTree, 1000, 0, 0);
+
+            if (!parent) add(uiRoot);
+            else parent.add(uiRoot);
+
+            lastRoot = uiRoot;
+        },
+
+        readd() {
+            const uiRoot = make([fixed(), pos(0, 0)]);
+            // TODO: uiRoot doesn't need to be used since all the elements have real kaboom objects
+            // associated with them, but I can't be bothered to remove it right now
+            addElement(this, uiRoot, uiTree, 1000, 0, 0);
+        },
+
+        remove() {
+            if (!lastRoot) throw new Error("Cannot remove UI since it hasn't been added yet.");
+
+            const children = [uiTree];
+
+            while (children.length > 0) {
+                const child = children.shift()!;
+
+                if (child instanceof UIBoxElement) for (const inner of child.children) children.push(inner);
+
+                child.kaboomObject = null;
+            }
+
+            lastRoot.destroy();
+            lastRoot = null;
         },
     };
 }
@@ -349,5 +503,14 @@ export function $text(text: string, attrs?: Partial<UITextAttributes>): UITextEl
  * @returns A UI box element acting as a button.
  */
 export function $button(text: string, attrs: UIButtonAttributes) {
-    return $box(attrs, $text(text)).onClick(attrs.onClick);
+    const el = $box(attrs, $text(text, attrs.text));
+
+    if (attrs.onClick) el.on("click", attrs.onClick);
+    if (attrs.onMouseDown) el.on("mousedown", attrs.onMouseDown);
+    if (attrs.onMouseRelease) el.on("mouseup", attrs.onMouseRelease);
+    if (attrs.onHover) el.on("hover", attrs.onHover);
+    if (attrs.onHoverEnd) el.on("hoverend", attrs.onHoverEnd);
+    if (attrs.onHoverUpdate) el.on("hoverupdate", attrs.onHoverUpdate);
+
+    return el;
 }
