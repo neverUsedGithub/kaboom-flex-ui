@@ -5,7 +5,7 @@
     "main": "index.js",
     "repository": {
         "type": "git",
-        "url": "https://github.com/neverUsedGithub/kaboom-flex-ui"
+        "url": "https://github.com/neverUsedGithub/kaboom-flex-ui.git"
     },
     "scripts": {
         "dev": "vite test",
