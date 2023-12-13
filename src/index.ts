@@ -5,6 +5,7 @@ import {
     EventController,
     GameObj,
     KaboomCtx,
+    OpacityComp,
     OutlineComp,
     PosComp,
     RectComp,
@@ -68,6 +69,15 @@ export interface UIBoxAttributes {
     outline: Color | undefined;
     outlineWidth: number;
     cursor: StrictCursor;
+    opacity: number;
+
+    onClick?: (this: UIElementPublic<UIBoxElement>) => any;
+    onMouseDown?: (this: UIElementPublic<UIBoxElement>) => any;
+    onMousePress?: (this: UIElementPublic<UIBoxElement>) => any;
+    onMouseRelease?: (this: UIElementPublic<UIBoxElement>) => any;
+    onHover?: (this: UIElementPublic<UIBoxElement>) => any;
+    onHoverEnd?: (this: UIElementPublic<UIBoxElement>) => any;
+    onHoverUpdate?: (this: UIElementPublic<UIBoxElement>) => any;
 }
 
 /**
@@ -78,6 +88,7 @@ export interface UITextAttributes {
     lineHeight: number;
     fontSize: number;
     color: Color;
+    opacity: number;
 }
 
 /**
@@ -85,13 +96,13 @@ export interface UITextAttributes {
  */
 export interface UIButtonAttributes extends Partial<UIBoxAttributes> {
     text?: Partial<UITextAttributes>;
+}
 
-    onClick?: (this: UIElementPublic<UIBoxElement>) => any;
-    onMouseDown?: (this: UIElementPublic<UIBoxElement>) => any;
-    onMouseRelease?: (this: UIElementPublic<UIBoxElement>) => any;
-    onHover?: (this: UIElementPublic<UIBoxElement>) => any;
-    onHoverEnd?: (this: UIElementPublic<UIBoxElement>) => any;
-    onHoverUpdate?: (this: UIElementPublic<UIBoxElement>) => any;
+export interface UICheckboxAttributes extends Partial<UIBoxAttributes> {
+    text?: Partial<UITextAttributes>;
+    checked?: boolean;
+
+    onCheck?: (this: UIElementPublic<UIBoxElement>, isChecked: boolean) => any;
 }
 
 /**
@@ -102,9 +113,12 @@ export type UIElement = UIBoxElement | UITextElement;
 export type UIElementPublic<T extends UIElement = UIElement> = T extends UIBoxElement
     ? {
           style: (attrs: Partial<T extends UIBoxElement ? UIBoxAttributes : UITextAttributes>) => void;
-          getChild: <U extends UIElement = UIElement>(nth: number) => U;
+          getChild: <U extends UIElement = UIElement>(nth: number) => UIElementPublic<U>;
       }
-    : { style: (attrs: Partial<T extends UIBoxElement ? UIBoxAttributes : UITextAttributes>) => void };
+    : {
+          style: (attrs: Partial<T extends UIBoxElement ? UIBoxAttributes : UITextAttributes>) => void;
+          setText: (text: string) => void;
+      };
 
 export interface UIManager {
     add: (parent?: GameObj) => void;
@@ -117,14 +131,15 @@ const getDefaultTextProperties: () => UITextAttributes = () => ({
     fontFamily: undefined,
     lineHeight: 0.9,
     fontSize: 30,
+    opacity: 1,
 });
 
 /**
  * Represents a UI text element with specified attributes.
  */
-class UITextElement {
+export class UITextElement {
     public attrs: UITextAttributes;
-    public kaboomObject: GameObj<PosComp | ColorComp | ZComp | TextComp> | null = null;
+    public kaboomObject: GameObj<PosComp | ColorComp | ZComp | TextComp | OpacityComp> | null = null;
     private parent: UIManager | null;
 
     constructor(attrs: Partial<UITextAttributes>, public text: string) {
@@ -138,6 +153,12 @@ class UITextElement {
 
     style(newAttributes: Partial<UITextAttributes>) {
         this.attrs = Object.assign({}, this.attrs, newAttributes);
+        if (!this.parent) throw new Error("no parent?");
+        this.parent.readd();
+    }
+
+    setText(text: string) {
+        this.text = text;
         if (!this.parent) throw new Error("no parent?");
         this.parent.readd();
     }
@@ -157,12 +178,13 @@ const getDefaultBoxProperties: () => UIBoxAttributes = () => ({
     width: undefined,
     borderRadius: 0,
     cursor: "default",
+    opacity: 1,
 });
 
 /**
  * Represents a UI box element with specified attributes and children elements.
  */
-class UIBoxElement {
+export class UIBoxElement {
     public attrs: UIBoxAttributes;
     public kaboomObject: GameObj<
         | PosComp
@@ -171,27 +193,51 @@ class UIBoxElement {
         | ZComp
         | OutlineComp
         | AreaComp
+        | OpacityComp
         | {
               uiElement: UIBoxElement;
           }
     > | null = null;
-    private eventListeners: Record<string, ((...args: any) => any)[]> = {};
-    private isClicking: boolean = false;
-    private isHovering: boolean = false;
     private parent: UIManager | null = null;
-    private lastController: EventController | null = null;
 
     constructor(attrs: Partial<UIBoxAttributes>, public children: UIElement[]) {
         this.attrs = Object.assign({}, getDefaultBoxProperties(), attrs);
     }
 
-    private addListener(event: string, listener: (...args: any) => any) {
-        if (!(event in this.eventListeners)) this.eventListeners[event] = [];
-        this.eventListeners[event].push(listener);
-    }
-
     triggerListener(event: string, ...args: any) {
-        if (event in this.eventListeners) for (const listener of this.eventListeners[event]) listener.bind(this)(args);
+        switch (event) {
+            case "click":
+                this.attrs.onClick && this.attrs.onClick.bind(this)();
+                break;
+
+            case "mousedown":
+                this.attrs.onMouseDown && this.attrs.onMouseDown.bind(this)();
+                break;
+
+            case "mousepress":
+                this.attrs.onMousePress && this.attrs.onMousePress.bind(this)();
+                break;
+
+            case "mouseup":
+                this.attrs.onMouseRelease && this.attrs.onMouseRelease.bind(this)();
+                break;
+
+            case "hoverend":
+                this.attrs.onHoverEnd && this.attrs.onHoverEnd.bind(this)();
+                break;
+
+            case "hoverupdate":
+                this.attrs.onHoverUpdate && this.attrs.onHoverUpdate.bind(this)();
+                break;
+
+            case "hover":
+                this.attrs.onHover && this.attrs.onHover.bind(this)();
+                break;
+
+            default:
+                throw new Error(`invalid event '${event}'`);
+        }
+        // if (event in this.eventListeners) for (const listener of this.eventListeners[event]) listener.bind(this)(args);
     }
 
     setParent(parent: UIManager) {
@@ -204,19 +250,8 @@ class UIBoxElement {
         this.parent.readd();
     }
 
-    getChild(nth: number) {
-        return this.children[nth] as UIElementPublic;
-    }
-
-    on(event: "hover", callback: (this: UIElementPublic<UIBoxElement>) => any): this;
-    on(event: "hoverend", callback: (this: UIElementPublic<UIBoxElement>) => any): this;
-    on(event: "hoverupdate", callback: (this: UIElementPublic<UIBoxElement>) => any): this;
-    on(event: "click", callback: (this: UIElementPublic<UIBoxElement>) => any): this;
-    on(event: "mousedown", callback: (this: UIElementPublic<UIBoxElement>) => any): this;
-    on(event: "mouseup", callback: (this: UIElementPublic<UIBoxElement>) => any): this;
-    on(event: string, callback: (this: UIElementPublic<UIBoxElement>) => any) {
-        this.addListener(event, callback);
-        return this;
+    getChild<U extends UIElement = UIElement>(nth: number) {
+        return this.children[nth] as any as UIElementPublic<U>;
     }
 }
 
@@ -319,6 +354,7 @@ function addElement(
                 z(depth),
                 outline(element.attrs.outlineWidth, element.attrs.outline),
                 area(),
+                opacity(element.attrs.opacity),
                 { uiElement: element },
                 "kaboom-flex-ui-element",
             ]);
@@ -344,6 +380,7 @@ function addElement(
             element.kaboomObject.height = selfHeight;
             element.kaboomObject.radius = element.attrs.borderRadius;
             element.kaboomObject.z = depth;
+            element.kaboomObject.opacity = element.attrs.opacity;
 
             if (element.attrs.outline) element.kaboomObject.outline.color = element.attrs.outline;
             if (element.attrs.outlineWidth) element.kaboomObject.outline.width = element.attrs.outlineWidth;
@@ -459,10 +496,12 @@ function addElement(
                 color(element.attrs.color),
                 pos(elementX, elementY),
                 z(depth),
+                opacity(element.attrs.opacity),
             ]);
         } else {
             element.kaboomObject.text = element.text;
             element.kaboomObject.color = element.attrs.color;
+            element.kaboomObject.opacity = element.attrs.opacity;
             element.kaboomObject.textSize = element.attrs.fontSize;
             if (element.attrs.fontFamily) element.kaboomObject.font = element.attrs.fontFamily;
         }
@@ -562,14 +601,31 @@ export function $button(text: string, attrs: UIButtonAttributes) {
     if (!attrs.cursor) attrs.cursor = "pointer";
     const el = $box(attrs, $text(text, attrs.text));
 
-    if (attrs.onClick) el.on("click", attrs.onClick);
-    if (attrs.onMouseDown) el.on("mousedown", attrs.onMouseDown);
-    if (attrs.onMouseRelease) el.on("mouseup", attrs.onMouseRelease);
-    if (attrs.onHover) el.on("hover", attrs.onHover);
-    if (attrs.onHoverEnd) el.on("hoverend", attrs.onHoverEnd);
-    if (attrs.onHoverUpdate) el.on("hoverupdate", attrs.onHoverUpdate);
-
     return el;
+}
+
+export function $checkbox(attrs: UICheckboxAttributes) {
+    let isChecked = attrs.checked ?? false;
+
+    return $button("✓", {
+        ...attrs,
+        text: {
+            ...attrs.text,
+            lineHeight: 0.9,
+            opacity: isChecked ? 1 : 0,
+        },
+
+        onClick() {
+            const textChild = this.getChild<UITextElement>(0);
+
+            isChecked = !isChecked;
+
+            if (isChecked) textChild.style({ opacity: 1 });
+            else textChild.style({ opacity: 0 });
+
+            if (attrs.onCheck) attrs.onCheck.bind(this)(isChecked);
+        },
+    });
 }
 
 export default function flexUIPlugin(ctx: KaboomCtx) {
@@ -578,5 +634,6 @@ export default function flexUIPlugin(ctx: KaboomCtx) {
         $box,
         $button,
         $text,
+        $checkbox,
     } as const;
 }

@@ -52,6 +52,7 @@ with the text "Hello, World!".
 - [$box](#gear-$box)
 - [$text](#gear-$text)
 - [$button](#gear-$button)
+- [$checkbox](#gear-$checkbox)
 - [default](#gear-default)
 
 ### :gear: makeUI
@@ -143,12 +144,82 @@ Parameters:
 * `attrs`: The attributes for the button element.
 
 
+### :gear: $checkbox
+
+| Function | Type |
+| ---------- | ---------- |
+| `$checkbox` | `(attrs: UICheckboxAttributes) => UIBoxElement` |
+
 ### :gear: default
 
 | Function | Type |
 | ---------- | ---------- |
 | `default` | `(ctx: KaboomCtx) => { readonly makeUI: (generator: UIGenerator) => UIManager; readonly $box: { (...children: UIElement[]): UIBoxElement; (attrs: Partial<...>, ...children: UIElement[]): UIBoxElement; }; readonly $button: (text: string, attrs: UIButtonAttributes) => UIBoxElement; readonly $text: (text: string, attrs?...` |
 
+
+## :factory: UITextElement
+
+Represents a UI text element with specified attributes.
+
+### Methods
+
+- [setParent](#gear-setparent)
+- [style](#gear-style)
+- [setText](#gear-settext)
+
+#### :gear: setParent
+
+| Method | Type |
+| ---------- | ---------- |
+| `setParent` | `(parent: UIManager) => void` |
+
+#### :gear: style
+
+| Method | Type |
+| ---------- | ---------- |
+| `style` | `(newAttributes: Partial<UITextAttributes>) => void` |
+
+#### :gear: setText
+
+| Method | Type |
+| ---------- | ---------- |
+| `setText` | `(text: string) => void` |
+
+
+## :factory: UIBoxElement
+
+Represents a UI box element with specified attributes and children elements.
+
+### Methods
+
+- [triggerListener](#gear-triggerlistener)
+- [setParent](#gear-setparent)
+- [style](#gear-style)
+- [getChild](#gear-getchild)
+
+#### :gear: triggerListener
+
+| Method | Type |
+| ---------- | ---------- |
+| `triggerListener` | `(event: string, ...args: any) => void` |
+
+#### :gear: setParent
+
+| Method | Type |
+| ---------- | ---------- |
+| `setParent` | `(parent: UIManager) => void` |
+
+#### :gear: style
+
+| Method | Type |
+| ---------- | ---------- |
+| `style` | `(newAttributes: Partial<UIBoxAttributes>) => void` |
+
+#### :gear: getChild
+
+| Method | Type |
+| ---------- | ---------- |
+| `getChild` | `<U extends UIElement = UIElement>(nth: number) => UIElementPublic<U>` |
 
 
 <!-- TSDOC_END -->
