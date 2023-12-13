@@ -13,6 +13,44 @@ import {
     ZComp,
 } from "kaboom";
 
+export type StrictCursor =
+    | "auto"
+    | "default"
+    | "none"
+    | "context-menu"
+    | "help"
+    | "pointer"
+    | "progress"
+    | "wait"
+    | "cell"
+    | "crosshair"
+    | "text"
+    | "vertical-text"
+    | "alias"
+    | "copy"
+    | "move"
+    | "no-drop"
+    | "not-allowed"
+    | "grab"
+    | "grabbing"
+    | "all-scroll"
+    | "col-resize"
+    | "row-resize"
+    | "n-resize"
+    | "e-resize"
+    | "s-resize"
+    | "w-resize"
+    | "ne-resize"
+    | "nw-resize"
+    | "se-resize"
+    | "sw-resize"
+    | "ew-resize"
+    | "ns-resize"
+    | "nesw-resize"
+    | "nwse-resize"
+    | "zoom-int"
+    | "zoom-out";
+
 /**
  * Represents attributes for a UI box element.
  */
@@ -29,6 +67,7 @@ export interface UIBoxAttributes {
     borderRadius: number;
     outline: Color | undefined;
     outlineWidth: number;
+    cursor: StrictCursor;
 }
 
 /**
@@ -117,6 +156,7 @@ const getDefaultBoxProperties: () => UIBoxAttributes = () => ({
     height: undefined,
     width: undefined,
     borderRadius: 0,
+    cursor: "default",
 });
 
 /**
@@ -284,8 +324,14 @@ function addElement(
             ]);
 
             element.kaboomObject.onClick(() => element.triggerListener("click"));
-            element.kaboomObject.onHover(() => element.triggerListener("hover"));
-            element.kaboomObject.onHoverEnd(() => element.triggerListener("hoverend"));
+            element.kaboomObject.onHover(() => {
+                if (element.attrs.cursor) setCursor(element.attrs.cursor);
+                element.triggerListener("hover");
+            });
+            element.kaboomObject.onHoverEnd(() => {
+                if (element.attrs.cursor) setCursor("default");
+                element.triggerListener("hoverend");
+            });
             element.kaboomObject.onMouseDown(() => element.triggerListener("mousedown"));
             element.kaboomObject.onMousePress(() => element.triggerListener("mousepress"));
             element.kaboomObject.onMouseRelease(() => element.triggerListener("mouseup"));
@@ -513,6 +559,7 @@ export function $text(text: string, attrs?: Partial<UITextAttributes>): UITextEl
  * @returns A UI box element acting as a button.
  */
 export function $button(text: string, attrs: UIButtonAttributes) {
+    if (!attrs.cursor) attrs.cursor = "pointer";
     const el = $box(attrs, $text(text, attrs.text));
 
     if (attrs.onClick) el.on("click", attrs.onClick);
