@@ -7,6 +7,7 @@
         "type": "git",
         "url": "https://github.com/neverUsedGithub/kaboom-flex-ui.git"
     },
+    "homepage": "https://github.com/neverUsedGithub/kaboom-flex-ui",
     "scripts": {
         "dev": "vite test",
         "build": "tsup",
