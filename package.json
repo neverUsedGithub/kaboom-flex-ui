@@ -22,7 +22,7 @@
     "keywords": [],
     "author": "",
     "license": "ISC",
-    "peerDependencies": {
+    "dependencies": {
         "kaboom": "^3000.1.17"
     },
     "devDependencies": {
