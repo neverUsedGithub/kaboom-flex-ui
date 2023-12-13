@@ -8,22 +8,25 @@ A modern UI library for kaboom.
 
 # Getting Started
 
-The library provides 3 components and a way to define UIs.
-
+Firstly, import the UI plugin and load it into kaboom.
 ```js
-import ui, { $box, $text, $button } from "kaboom-flex-ui";
+import flexUIPlugin from "kaboom-flex-ui";
+
+const k = kaboom({
+    plugins: [ flexUIPlugin ]
+});
 ```
 
-To create a UI you will have to call the `ui` function with a function that returns a UI element.
+Then, to create a UI you will have to call the `makeUI` function with a function that returns a UI element.
 
 ```js
-const mainMenu = ui(() => $box(
+const mainMenu = k.makeUI(() => k.$box(
     {
         width: 500,
         height: 500,
         background: YELLOW
     },
-    $text("Hello, World!")
+    k.$text("Hello, World!")
 ));
 ```
 
@@ -43,20 +46,21 @@ with the text "Hello, World!".
 
 ## :toolbox: Functions
 
-- [default](#gear-default)
+- [makeUI](#gear-makeui)
 - [$box](#gear-$box)
 - [$box](#gear-$box)
 - [$box](#gear-$box)
 - [$text](#gear-$text)
 - [$button](#gear-$button)
+- [default](#gear-default)
 
-### :gear: default
+### :gear: makeUI
 
 Defines a UI function that takes a UI generator and returns an object with an add method.
 
 | Function | Type |
 | ---------- | ---------- |
-| `default` | `(generator: UIGenerator) => UIManager` |
+| `makeUI` | `(generator: UIGenerator) => UIManager` |
 
 Parameters:
 
@@ -138,6 +142,12 @@ Parameters:
 * `text`: The text content.
 * `attrs`: The attributes for the button element.
 
+
+### :gear: default
+
+| Function | Type |
+| ---------- | ---------- |
+| `default` | `(ctx: KaboomCtx) => { readonly makeUI: (generator: UIGenerator) => UIManager; readonly $box: { (...children: UIElement[]): UIBoxElement; (attrs: Partial<...>, ...children: UIElement[]): UIBoxElement; }; readonly $button: (text: string, attrs: UIButtonAttributes) => UIBoxElement; readonly $text: (text: string, attrs?...` |
 
 
 

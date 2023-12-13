@@ -1,10 +1,12 @@
 import kaboom from "kaboom";
-import ui, { $box, $button, $text } from "../src";
+import flexUIPlugin from "../src";
 
-kaboom();
+const k = kaboom({
+    plugins: [ flexUIPlugin ]
+});
 
-const mainMenu = ui(() => {
-    return $box(
+const mainMenu = k.makeUI(() => {
+    return k.$box(
         {
             background: rgb(10, 10, 10),
             width: width(),
@@ -14,11 +16,11 @@ const mainMenu = ui(() => {
             flow: "y",
             gap: 32,
         },
-        $text("My Kaboom Game!", {
+        k.$text("My Kaboom Game!", {
             fontSize: 48,
             color: rgb(220, 220, 220),
         }),
-        $button("Play!", {
+        k.$button("Play!", {
             background: rgb(20, 20, 20),
             padding: { top: 16, bottom: 16, left: 32, right: 32 },
             borderRadius: 100000,

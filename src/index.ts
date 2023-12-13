@@ -4,6 +4,7 @@ import kaboom, {
     ColorComp,
     EventController,
     GameObj,
+    KaboomCtx,
     OutlineComp,
     PosComp,
     RectComp,
@@ -419,7 +420,7 @@ function addElement(
  * @param generator The UI generator function.
  * @returns An object with an add method.
  */
-export default function ui(generator: UIGenerator): UIManager {
+export function makeUI(generator: UIGenerator): UIManager {
     let uiTree: UIElement;
     let lastRoot: GameObj | null;
 
@@ -513,4 +514,13 @@ export function $button(text: string, attrs: UIButtonAttributes) {
     if (attrs.onHoverUpdate) el.on("hoverupdate", attrs.onHoverUpdate);
 
     return el;
+}
+
+export default function flexUIPlugin(ctx: KaboomCtx) {
+    return {
+        makeUI,
+        $box,
+        $button,
+        $text
+    } as const;
 }
