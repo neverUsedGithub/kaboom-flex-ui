@@ -1,4 +1,4 @@
-import kaboom, {
+import {
     AreaComp,
     Color,
     ColorComp,
@@ -47,12 +47,12 @@ export interface UITextAttributes {
 export interface UIButtonAttributes extends Partial<UIBoxAttributes> {
     text?: Partial<UITextAttributes>;
 
-    onClick?: (this: UIBoxListenerThis) => any;
-    onMouseDown?: (this: UIBoxListenerThis) => any;
-    onMouseRelease?: (this: UIBoxListenerThis) => any;
-    onHover?: (this: UIBoxListenerThis) => any;
-    onHoverEnd?: (this: UIBoxListenerThis) => any;
-    onHoverUpdate?: (this: UIBoxListenerThis) => any;
+    onClick?: (this: UIElementPublic<UIBoxElement>) => any;
+    onMouseDown?: (this: UIElementPublic<UIBoxElement>) => any;
+    onMouseRelease?: (this: UIElementPublic<UIBoxElement>) => any;
+    onHover?: (this: UIElementPublic<UIBoxElement>) => any;
+    onHoverEnd?: (this: UIElementPublic<UIBoxElement>) => any;
+    onHoverUpdate?: (this: UIElementPublic<UIBoxElement>) => any;
 }
 
 /**
@@ -60,7 +60,12 @@ export interface UIButtonAttributes extends Partial<UIBoxAttributes> {
  */
 export type UIElement = UIBoxElement | UITextElement;
 
-export type UIBoxListenerThis = { style: (attrs: Partial<UIBoxAttributes>) => void };
+export type UIElementPublic<T extends UIElement = UIElement> = T extends UIBoxElement
+    ? {
+          style: (attrs: Partial<T extends UIBoxElement ? UIBoxAttributes : UITextAttributes>) => void;
+          getChild: <U extends UIElement = UIElement>(nth: number) => U;
+      }
+    : { style: (attrs: Partial<T extends UIBoxElement ? UIBoxAttributes : UITextAttributes>) => void };
 
 export interface UIManager {
     add: (parent?: GameObj) => void;
@@ -159,13 +164,17 @@ class UIBoxElement {
         this.parent.readd();
     }
 
-    on(event: "hover", callback: (this: UIBoxListenerThis) => any): this;
-    on(event: "hoverend", callback: (this: UIBoxListenerThis) => any): this;
-    on(event: "hoverupdate", callback: (this: UIBoxListenerThis) => any): this;
-    on(event: "click", callback: (this: UIBoxListenerThis) => any): this;
-    on(event: "mousedown", callback: (this: UIBoxListenerThis) => any): this;
-    on(event: "mouseup", callback: (this: UIBoxListenerThis) => any): this;
-    on(event: string, callback: (this: UIBoxListenerThis) => any) {
+    getChild(nth: number) {
+        return this.children[nth] as UIElementPublic;
+    }
+
+    on(event: "hover", callback: (this: UIElementPublic<UIBoxElement>) => any): this;
+    on(event: "hoverend", callback: (this: UIElementPublic<UIBoxElement>) => any): this;
+    on(event: "hoverupdate", callback: (this: UIElementPublic<UIBoxElement>) => any): this;
+    on(event: "click", callback: (this: UIElementPublic<UIBoxElement>) => any): this;
+    on(event: "mousedown", callback: (this: UIElementPublic<UIBoxElement>) => any): this;
+    on(event: "mouseup", callback: (this: UIElementPublic<UIBoxElement>) => any): this;
+    on(event: string, callback: (this: UIElementPublic<UIBoxElement>) => any) {
         this.addListener(event, callback);
         return this;
     }
@@ -521,6 +530,6 @@ export default function flexUIPlugin(ctx: KaboomCtx) {
         makeUI,
         $box,
         $button,
-        $text
+        $text,
     } as const;
 }

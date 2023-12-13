@@ -2,7 +2,7 @@ import kaboom from "kaboom";
 import flexUIPlugin from "../src";
 
 const k = kaboom({
-    plugins: [ flexUIPlugin ]
+    plugins: [flexUIPlugin],
 });
 
 const mainMenu = k.makeUI(() => {
@@ -34,18 +34,22 @@ const mainMenu = k.makeUI(() => {
             },
             onHoverUpdate() {
                 const t = time() * 10;
-                const color = hsl2rgb((t / 10) % 1, 0.6, 0.7);
+                const color = hsl2rgb((t / 20) % 1, 0.6, 0.7);
 
                 this.style({
                     background: rgb(40, 40, 40),
                     outline: color,
                 });
+
+                this.getChild(0).style({ color });
             },
             onHoverEnd() {
                 this.style({
                     background: rgb(20, 20, 20),
                     outline: rgb(60, 60, 60),
                 });
+
+                this.getChild(0).style({ color: rgb(220, 220, 220) });
             },
         })
     );
