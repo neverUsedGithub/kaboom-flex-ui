@@ -71,6 +71,8 @@ export interface UIBoxAttributes {
     cursor: StrictCursor;
     opacity: number;
 
+    onMount?: (this: UIElementPublic<UIBoxElement>, object: Exclude<UIBoxElement["kaboomObject"], null>) => any;
+
     onClick?: (this: UIElementPublic<UIBoxElement>) => any;
     onMouseDown?: (this: UIElementPublic<UIBoxElement>) => any;
     onMousePress?: (this: UIElementPublic<UIBoxElement>) => any;
@@ -89,6 +91,8 @@ export interface UITextAttributes {
     fontSize: number;
     color: Color;
     opacity: number;
+
+    onMount?: (this: UIElementPublic<UITextElement>, object: Exclude<UITextElement["kaboomObject"], null>) => any;
 }
 
 /**
@@ -103,6 +107,16 @@ export interface UICheckboxAttributes extends Partial<UIBoxAttributes> {
     checked?: boolean;
 
     onCheck?: (this: UIElementPublic<UIBoxElement>, isChecked: boolean) => any;
+}
+
+export interface UIInputAttributes extends Partial<UIBoxAttributes> {
+    text?: Partial<UITextAttributes>;
+    value?: string;
+
+    onBlur?: (this: UIElementPublic<UIBoxElement>) => any;
+    onFocus?: (this: UIElementPublic<UIBoxElement>) => any;
+    onFocusUpdate?: (this: UIElementPublic<UIBoxElement>) => any;
+    onChange?: (this: UIElementPublic<UIBoxElement>, value: string) => any;
 }
 
 /**
@@ -260,10 +274,10 @@ export class UIBoxElement {
  */
 export type UIGenerator = () => UIElement;
 
-function getTextOptions(element: UITextElement): TextCompOpt {
+function getTextOptions(attrs: UITextAttributes): TextCompOpt {
     return {
-        size: element.attrs.fontSize,
-        font: element.attrs.fontFamily,
+        size: attrs.fontSize,
+        font: attrs.fontFamily,
     };
 }
 
@@ -287,7 +301,7 @@ function calculateMinWidth(element: UIElement): number {
         return calcWidth;
     }
 
-    return formatText({ text: element.text, ...getTextOptions(element) }).width;
+    return formatText({ text: element.text, ...getTextOptions(element.attrs) }).width;
 }
 
 function calculateMinHeight(element: UIElement): number {
@@ -310,7 +324,7 @@ function calculateMinHeight(element: UIElement): number {
         return calcHeight;
     }
 
-    return formatText({ text: element.text, ...getTextOptions(element) }).height * element.attrs.lineHeight;
+    return formatText({ text: element.text, ...getTextOptions(element.attrs) }).height * element.attrs.lineHeight;
 }
 
 function addElement(
@@ -352,7 +366,7 @@ function addElement(
                     radius: element.attrs.borderRadius,
                 }),
                 z(depth),
-                outline(element.attrs.outlineWidth, element.attrs.outline),
+                element.attrs.outline && outline(element.attrs.outlineWidth, element.attrs.outline),
                 area(),
                 opacity(element.attrs.opacity),
                 { uiElement: element },
@@ -372,9 +386,11 @@ function addElement(
             element.kaboomObject.onMousePress(() => element.triggerListener("mousepress"));
             element.kaboomObject.onMouseRelease(() => element.triggerListener("mouseup"));
             element.kaboomObject.onHoverUpdate(() => element.triggerListener("hoverupdate"));
+
+            if (element.attrs.onMount) element.attrs.onMount.bind(element)(element.kaboomObject);
         } else {
-            element.kaboomObject.pos.x = elementX ?? 0;
-            element.kaboomObject.pos.y = elementY ?? 0;
+            element.kaboomObject.pos.x = elementX;
+            element.kaboomObject.pos.y = elementY;
             element.kaboomObject.color = element.attrs.background;
             element.kaboomObject.width = selfWidth;
             element.kaboomObject.height = selfHeight;
@@ -382,8 +398,12 @@ function addElement(
             element.kaboomObject.z = depth;
             element.kaboomObject.opacity = element.attrs.opacity;
 
-            if (element.attrs.outline) element.kaboomObject.outline.color = element.attrs.outline;
-            if (element.attrs.outlineWidth) element.kaboomObject.outline.width = element.attrs.outlineWidth;
+            if (element.attrs.outline && element.kaboomObject.outline) {
+                element.kaboomObject.outline.color = element.attrs.outline;
+                element.kaboomObject.outline.width = element.attrs.outlineWidth;
+            } else if (element.attrs.outline)
+                element.kaboomObject.use(outline(element.attrs.outlineWidth, element.attrs.outline));
+            else if (element.kaboomObject.outline) element.kaboomObject.unuse("outline");
         }
 
         if (element.attrs.flow === "x") {
@@ -492,13 +512,17 @@ function addElement(
     } else {
         if (!element.kaboomObject) {
             element.kaboomObject = parent.add([
-                text(element.text, getTextOptions(element)),
+                text(element.text, getTextOptions(element.attrs)),
                 color(element.attrs.color),
                 pos(elementX, elementY),
                 z(depth),
                 opacity(element.attrs.opacity),
             ]);
+
+            if (element.attrs.onMount) element.attrs.onMount.bind(element)(element.kaboomObject);
         } else {
+            element.kaboomObject.pos.x = elementX;
+            element.kaboomObject.pos.y = elementY;
             element.kaboomObject.text = element.text;
             element.kaboomObject.color = element.attrs.color;
             element.kaboomObject.opacity = element.attrs.opacity;
@@ -628,6 +652,140 @@ export function $checkbox(attrs: UICheckboxAttributes) {
     });
 }
 
+export function $input(attrs: UIInputAttributes) {
+    const expandedAttrs: UITextAttributes = Object.assign({}, getDefaultTextProperties(), attrs.text);
+    const cursorWidth = 2;
+    const cursorGap = 2;
+
+    let value = "";
+    let cursorPos = 0;
+    let isFocused = false;
+
+    let lastSwitch = 0;
+    let isBlinked = false;
+
+    return $box(
+        {
+            ...attrs,
+            cursor: "text",
+            gap: 0,
+
+            onClick() {
+                if (attrs.onFocus) attrs.onFocus.bind(this)();
+                isFocused = true;
+
+                const cursorElement = this.getChild<UIBoxElement>(1);
+                const beforeCursor = this.getChild<UITextElement>(0);
+                const afterCursor = this.getChild<UITextElement>(2);
+
+                beforeCursor.setText(value.substring(0, cursorPos));
+                afterCursor.setText(value.substring(cursorPos));
+                cursorElement.style({ opacity: 1, width: cursorWidth, gap: cursorGap });
+
+                lastSwitch = 0;
+                isBlinked = true;
+            },
+
+            onMount(object) {
+                const cursorElement = this.getChild<UIBoxElement>(1);
+                const beforeCursor = this.getChild<UITextElement>(0);
+                const afterCursor = this.getChild<UITextElement>(2);
+
+                const updateText = (text: string) => {
+                    if (value !== text && attrs.onChange) attrs.onChange.bind(this)(text);
+
+                    beforeCursor.setText(text.substring(0, cursorPos));
+                    afterCursor.setText(text.substring(cursorPos));
+                    value = text;
+                };
+
+                const listeners = [
+                    onUpdate(() => {
+                        if (!isFocused) return;
+                        if (attrs.onFocusUpdate) attrs.onFocusUpdate.bind(this)();
+
+                        lastSwitch += dt() * 1000;
+
+                        if (lastSwitch >= 700) {
+                            isBlinked = !isBlinked;
+                            cursorElement.style({ opacity: isBlinked ? 1 : 0 });
+                            lastSwitch = 0;
+                        }
+                    }),
+
+                    onClick(() => {
+                        if (object.isHovering()) return;
+                        if (attrs.onBlur) attrs.onBlur.bind(this)();
+
+                        cursorPos = value.length;
+                        cursorElement.style({ opacity: 0, width: 0 });
+                        this.style({ gap: 0 });
+
+                        isFocused = false;
+                    }),
+
+                    onKeyPressRepeat("left", () => {
+                        if (!isFocused || cursorPos === 0) return;
+
+                        isBlinked = true;
+                        lastSwitch = 0;
+                        cursorElement.style({ opacity: 1 });
+
+                        cursorPos--;
+                        updateText(value);
+                    }),
+
+                    onKeyPressRepeat("right", () => {
+                        if (!isFocused || cursorPos === value.length) return;
+
+                        isBlinked = true;
+                        lastSwitch = 0;
+                        cursorElement.style({ opacity: 1 });
+
+                        cursorPos++;
+                        updateText(value);
+                    }),
+
+                    onKeyPressRepeat("backspace", () => {
+                        if (!isFocused || cursorPos === 0) return;
+
+                        isBlinked = true;
+                        lastSwitch = 0;
+                        cursorElement.style({ opacity: 1 });
+
+                        cursorPos--;
+                        updateText(value.substring(0, cursorPos) + value.substring(cursorPos + 1));
+                    }),
+
+                    onCharInput((ch) => {
+                        if (!isFocused) return;
+
+                        isBlinked = true;
+                        lastSwitch = 0;
+                        cursorElement.style({ opacity: 1 });
+
+                        cursorPos++;
+                        if (isKeyDown("shift")) ch = ch.toUpperCase();
+                        updateText(value.substring(0, cursorPos - 1) + ch + value.substring(cursorPos - 1));
+                    }),
+                ];
+
+                // Cleanup click listener
+                object.onDestroy(() => listeners.forEach((listener) => listener.cancel()));
+            },
+        },
+        $text(value, attrs.text),
+        $box({
+            opacity: 0,
+            background: attrs.text?.color ?? rgb(255, 255, 255),
+            width: 0,
+            height: formatText({ text: value.length === 0 ? " " : value, ...getTextOptions(expandedAttrs) }).height - 2,
+            cursor: "text",
+        }),
+        $text("", attrs.text)
+    );
+}
+
 export default function flexUIPlugin(ctx: KaboomCtx) {
     return {
         makeUI,
@@ -635,5 +793,6 @@ export default function flexUIPlugin(ctx: KaboomCtx) {
         $button,
         $text,
         $checkbox,
+        $input,
     } as const;
 }

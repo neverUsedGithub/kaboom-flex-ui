@@ -71,6 +71,41 @@ const mainMenu = k.makeUI(() => {
             onCheck(isChecked) {
                 console.log("check", isChecked);
             },
+        }),
+        k.$input({
+            ...darkTheme,
+            text: {
+                color: rgb(220, 220, 220),
+            },
+
+            onChange(value) {
+                console.log("entered text", value);
+            },
+
+            onFocusUpdate() {
+                const t = time() * 10;
+                const color = hsl2rgb((t / 20) % 1, 0.6, 0.7);
+
+                this.style({
+                    background: rgb(40, 40, 40),
+                    outline: color,
+                });
+
+                this.getChild(0).style({ color });
+                this.getChild(1).style({ background: color });
+                this.getChild(2).style({ color });
+            },
+
+            onBlur() {
+                this.style({
+                    background: rgb(20, 20, 20),
+                    outline: rgb(60, 60, 60),
+                });
+
+                this.getChild(0).style({ color: rgb(220, 220, 220) });
+                this.getChild(1).style({ background: rgb(220, 220, 220) });
+                this.getChild(2).style({ color: rgb(220, 220, 220) });
+            },
         })
     );
 });

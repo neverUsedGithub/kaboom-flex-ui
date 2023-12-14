@@ -53,6 +53,7 @@ with the text "Hello, World!".
 - [$text](#gear-$text)
 - [$button](#gear-$button)
 - [$checkbox](#gear-$checkbox)
+- [$input](#gear-$input)
 - [default](#gear-default)
 
 ### :gear: makeUI
@@ -149,6 +150,12 @@ Parameters:
 | Function | Type |
 | ---------- | ---------- |
 | `$checkbox` | `(attrs: UICheckboxAttributes) => UIBoxElement` |
+
+### :gear: $input
+
+| Function | Type |
+| ---------- | ---------- |
+| `$input` | `(attrs: UIInputAttributes) => UIBoxElement` |
 
 ### :gear: default
 
