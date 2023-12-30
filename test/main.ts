@@ -1,17 +1,20 @@
+// <reference path="../node_modules/kaboom/dist/global.d.ts" />
+
 import kaboom from "kaboom";
 import flexUIPlugin, { UIBoxAttributes, UIButtonAttributes, UITextElement } from "../src";
 
 const k = kaboom({
     plugins: [flexUIPlugin],
+    global: false,
 });
 
 const rainbowHover: Partial<UIBoxAttributes> = {
     onHoverUpdate() {
-        const t = time() * 10;
-        const color = hsl2rgb((t / 20) % 1, 0.6, 0.7);
+        const t = k.time() * 10;
+        const color = k.hsl2rgb((t / 20) % 1, 0.6, 0.7);
 
         this.style({
-            background: rgb(40, 40, 40),
+            background: k.rgb(40, 40, 40),
             outline: color,
         });
 
@@ -19,31 +22,31 @@ const rainbowHover: Partial<UIBoxAttributes> = {
     },
     onHoverEnd() {
         this.style({
-            background: rgb(20, 20, 20),
-            outline: rgb(60, 60, 60),
+            background: k.rgb(20, 20, 20),
+            outline: k.rgb(60, 60, 60),
         });
 
-        this.getChild(0).style({ color: rgb(220, 220, 220) });
+        this.getChild(0).style({ color: k.rgb(220, 220, 220) });
     },
 };
 
 const darkTheme: Partial<UIButtonAttributes> = {
-    background: rgb(20, 20, 20),
+    background: k.rgb(20, 20, 20),
     padding: { top: 16, bottom: 16, left: 32, right: 32 },
     borderRadius: 100000,
-    outline: rgb(60, 60, 60),
+    outline: k.rgb(60, 60, 60),
     outlineWidth: 3,
     text: {
-        color: rgb(220, 220, 220),
+        color: k.rgb(220, 220, 220),
     },
 };
 
-const mainMenu = k.makeUI(() => {
+const mainMenu = k.makeUI(k, () => {
     return k.$box(
         {
-            background: rgb(10, 10, 10),
-            width: width(),
-            height: height(),
+            background: k.rgb(10, 10, 10),
+            width: k.width(),
+            height: k.height(),
             alignY: "center",
             alignX: "center",
             flow: "y",
@@ -51,7 +54,7 @@ const mainMenu = k.makeUI(() => {
         },
         k.$text("My Kaboom Game!", {
             fontSize: 48,
-            color: rgb(220, 220, 220),
+            color: k.rgb(220, 220, 220),
         }),
         k.$button("Play!", {
             ...darkTheme,
@@ -75,7 +78,7 @@ const mainMenu = k.makeUI(() => {
         k.$input({
             ...darkTheme,
             text: {
-                color: rgb(220, 220, 220),
+                color: k.rgb(220, 220, 220),
             },
 
             onChange(value) {
@@ -83,11 +86,11 @@ const mainMenu = k.makeUI(() => {
             },
 
             onFocusUpdate() {
-                const t = time() * 10;
-                const color = hsl2rgb((t / 20) % 1, 0.6, 0.7);
+                const t = k.time() * 10;
+                const color = k.hsl2rgb((t / 20) % 1, 0.6, 0.7);
 
                 this.style({
-                    background: rgb(40, 40, 40),
+                    background: k.rgb(40, 40, 40),
                     outline: color,
                 });
 
@@ -98,13 +101,13 @@ const mainMenu = k.makeUI(() => {
 
             onBlur() {
                 this.style({
-                    background: rgb(20, 20, 20),
-                    outline: rgb(60, 60, 60),
+                    background: k.rgb(20, 20, 20),
+                    outline: k.rgb(60, 60, 60),
                 });
 
-                this.getChild(0).style({ color: rgb(220, 220, 220) });
-                this.getChild(1).style({ background: rgb(220, 220, 220) });
-                this.getChild(2).style({ color: rgb(220, 220, 220) });
+                this.getChild(0).style({ color: k.rgb(220, 220, 220) });
+                this.getChild(1).style({ background: k.rgb(220, 220, 220) });
+                this.getChild(2).style({ color: k.rgb(220, 220, 220) });
             },
         })
     );

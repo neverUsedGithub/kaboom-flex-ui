@@ -1,12 +1,11 @@
 {
-    "include": ["src/**/*.ts", "test/**/*.ts"],
+    "include": ["src/**/*.ts"],
     "compilerOptions": {
         "strict": true,
         "lib": ["ESNext", "DOM"],
         "target": "ESNext",
         "module": "ESNext",
         "moduleResolution": "Bundler",
-        "types": ["./node_modules/kaboom/dist/global.d.ts"],
         "noEmit": true,
         "skipLibCheck": true
     }

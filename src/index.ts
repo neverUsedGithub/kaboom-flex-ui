@@ -52,6 +52,8 @@ export type StrictCursor =
     | "zoom-int"
     | "zoom-out";
 
+export type UIColor = Color | [number, number, number];
+
 /**
  * Represents attributes for a UI box element.
  */
@@ -59,14 +61,14 @@ export interface UIBoxAttributes {
     alignX: "left" | "center" | "right";
     alignY: "top" | "center" | "bottom";
     flow: "y" | "x";
-    background: Color;
+    background: UIColor;
     padding: { left: number; right: number; top: number; bottom: number } | number;
     fit: boolean;
     gap: number;
     height: number | undefined;
     width: number | undefined;
     borderRadius: number;
-    outline: Color | undefined;
+    outline: UIColor | undefined;
     outlineWidth: number;
     cursor: StrictCursor;
     opacity: number;
@@ -89,7 +91,7 @@ export interface UITextAttributes {
     fontFamily: string | undefined;
     lineHeight: number;
     fontSize: number;
-    color: Color;
+    color: UIColor;
     opacity: number;
 
     onMount?: (this: UIElementPublic<UITextElement>, object: Exclude<UITextElement["kaboomObject"], null>) => any;
@@ -126,12 +128,14 @@ export type UIElement = UIBoxElement | UITextElement;
 
 export type UIElementPublic<T extends UIElement = UIElement> = T extends UIBoxElement
     ? {
-          style: (attrs: Partial<T extends UIBoxElement ? UIBoxAttributes : UITextAttributes>) => void;
+          style: (attrs: Partial<UIBoxAttributes>) => void;
           getChild: <U extends UIElement = UIElement>(nth: number) => UIElementPublic<U>;
+          getKaboom: () => KaboomCtx;
       }
     : {
-          style: (attrs: Partial<T extends UIBoxElement ? UIBoxAttributes : UITextAttributes>) => void;
+          style: (attrs: Partial<UITextAttributes>) => void;
           setText: (text: string) => void;
+          getKaboom: () => KaboomCtx;
       };
 
 export interface UIManager {
@@ -140,8 +144,17 @@ export interface UIManager {
     remove: () => void;
 }
 
+function getKaboomManager(instance?: KaboomCtx): KaboomCtx {
+    if (!instance && typeof (window as any).rgb !== "function")
+        throw new Error(
+            "Couldn't find global kaboom functions on window. Did you forget to pass in kaboom as a parameter to makeUI?"
+        );
+
+    return instance ?? (window as any as KaboomCtx);
+}
+
 const getDefaultTextProperties: () => UITextAttributes = () => ({
-    color: rgb(0, 0, 0),
+    color: [0, 0, 0],
     fontFamily: undefined,
     lineHeight: 0.9,
     fontSize: 30,
@@ -154,11 +167,11 @@ const getDefaultTextProperties: () => UITextAttributes = () => ({
 export class UITextElement {
     public attrs: UITextAttributes;
     public kaboomObject: GameObj<PosComp | ColorComp | ZComp | TextComp | OpacityComp> | null = null;
-    private parent: UIManager | null;
+    private parent: UIManager | null = null;
+    private kaboom: KaboomCtx | null = null;
 
     constructor(attrs: Partial<UITextAttributes>, public text: string) {
         this.attrs = Object.assign({}, getDefaultTextProperties(), attrs);
-        this.parent = null;
     }
 
     setParent(parent: UIManager) {
@@ -176,13 +189,21 @@ export class UITextElement {
         if (!this.parent) throw new Error("no parent?");
         this.parent.readd();
     }
+
+    setKaboom(kaboom: KaboomCtx) {
+        this.kaboom = kaboom;
+    }
+
+    getKaboom(): KaboomCtx {
+        return this.kaboom!;
+    }
 }
 
 const getDefaultBoxProperties: () => UIBoxAttributes = () => ({
     alignX: "left",
     alignY: "top",
     flow: "x",
-    background: rgb(255, 255, 255),
+    background: [255, 255, 255],
     fit: false,
     gap: 0,
     padding: { left: 0, right: 0, top: 0, bottom: 0 },
@@ -213,6 +234,7 @@ export class UIBoxElement {
           }
     > | null = null;
     private parent: UIManager | null = null;
+    private kaboom: KaboomCtx | null = null;
 
     constructor(attrs: Partial<UIBoxAttributes>, public children: UIElement[]) {
         this.attrs = Object.assign({}, getDefaultBoxProperties(), attrs);
@@ -267,6 +289,14 @@ export class UIBoxElement {
     getChild<U extends UIElement = UIElement>(nth: number) {
         return this.children[nth] as any as UIElementPublic<U>;
     }
+
+    setKaboom(kaboom: KaboomCtx) {
+        this.kaboom = kaboom;
+    }
+
+    getKaboom(): KaboomCtx {
+        return this.kaboom!;
+    }
 }
 
 /**
@@ -281,14 +311,14 @@ function getTextOptions(attrs: UITextAttributes): TextCompOpt {
     };
 }
 
-function calculateMinWidth(element: UIElement): number {
+function calculateMinWidth(kaboom: KaboomCtx, element: UIElement): number {
     if (element instanceof UIBoxElement) {
         const width =
             element.attrs.flow === "x"
                 ? element.children
-                      .map(calculateMinWidth)
+                      .map((child) => calculateMinWidth(kaboom, child))
                       .reduce((a, b) => a + b + element.attrs.gap, -element.attrs.gap)
-                : Math.max(...element.children.map(calculateMinWidth));
+                : Math.max(...element.children.map((child) => calculateMinWidth(kaboom, child)));
 
         const calcWidth =
             width +
@@ -301,16 +331,16 @@ function calculateMinWidth(element: UIElement): number {
         return calcWidth;
     }
 
-    return formatText({ text: element.text, ...getTextOptions(element.attrs) }).width;
+    return kaboom.formatText({ text: element.text, ...getTextOptions(element.attrs) }).width;
 }
 
-function calculateMinHeight(element: UIElement): number {
+function calculateMinHeight(kaboom: KaboomCtx, element: UIElement): number {
     if (element instanceof UIBoxElement) {
         const height =
             element.attrs.flow === "x"
-                ? Math.max(...element.children.map(calculateMinHeight))
+                ? Math.max(...element.children.map((child) => calculateMinHeight(kaboom, child)))
                 : element.children
-                      .map(calculateMinHeight)
+                      .map((child) => calculateMinHeight(kaboom, child))
                       .reduce((a, b) => a + b + element.attrs.gap, -element.attrs.gap);
 
         const calcHeight =
@@ -324,10 +354,18 @@ function calculateMinHeight(element: UIElement): number {
         return calcHeight;
     }
 
-    return formatText({ text: element.text, ...getTextOptions(element.attrs) }).height * element.attrs.lineHeight;
+    return (
+        kaboom.formatText({ text: element.text, ...getTextOptions(element.attrs) }).height * element.attrs.lineHeight
+    );
+}
+
+function toKaboomColor(kaboom: KaboomCtx, color: UIColor) {
+    if (Array.isArray(color)) return kaboom.rgb(color[0], color[1], color[2]);
+    return color;
 }
 
 function addElement(
+    kaboom: KaboomCtx,
     ctx: UIManager,
     parent: GameObj,
     element: UIElement,
@@ -349,8 +387,8 @@ function addElement(
         const paddingRight =
             typeof element.attrs.padding === "number" ? element.attrs.padding : element.attrs.padding.right;
 
-        const minHeight = calculateMinHeight(element);
-        const minWidth = calculateMinWidth(element);
+        const minHeight = calculateMinHeight(kaboom, element);
+        const minWidth = calculateMinWidth(kaboom, element);
 
         let selfHeight: number = elementHeight ?? minHeight;
         let selfWidth: number = elementWidth ?? minWidth;
@@ -360,38 +398,39 @@ function addElement(
 
         if (!element.kaboomObject) {
             element.kaboomObject = parent.add([
-                pos(elementX ?? 0, elementY ?? 0),
-                color(element.attrs.background),
-                rect(selfWidth, selfHeight, {
+                kaboom.pos(elementX ?? 0, elementY ?? 0),
+                kaboom.color(toKaboomColor(kaboom, element.attrs.background)),
+                kaboom.rect(selfWidth, selfHeight, {
                     radius: element.attrs.borderRadius,
                 }),
-                z(depth),
-                element.attrs.outline && outline(element.attrs.outlineWidth, element.attrs.outline),
-                area(),
-                opacity(element.attrs.opacity),
+                kaboom.z(depth),
+                element.attrs.outline &&
+                    kaboom.outline(element.attrs.outlineWidth, toKaboomColor(kaboom, element.attrs.outline)),
+                kaboom.area(),
+                kaboom.opacity(element.attrs.opacity),
                 { uiElement: element },
                 "kaboom-flex-ui-element",
             ]);
 
+            element.setKaboom(kaboom);
+
             element.kaboomObject.onClick(() => element.triggerListener("click"));
             element.kaboomObject.onHover(() => {
-                if (element.attrs.cursor) setCursor(element.attrs.cursor);
+                if (element.attrs.cursor) kaboom.setCursor(element.attrs.cursor);
                 element.triggerListener("hover");
             });
             element.kaboomObject.onHoverEnd(() => {
-                if (element.attrs.cursor) setCursor("default");
+                if (element.attrs.cursor) kaboom.setCursor("default");
                 element.triggerListener("hoverend");
             });
             element.kaboomObject.onMouseDown(() => element.triggerListener("mousedown"));
             element.kaboomObject.onMousePress(() => element.triggerListener("mousepress"));
             element.kaboomObject.onMouseRelease(() => element.triggerListener("mouseup"));
             element.kaboomObject.onHoverUpdate(() => element.triggerListener("hoverupdate"));
-
-            if (element.attrs.onMount) element.attrs.onMount.bind(element)(element.kaboomObject);
         } else {
             element.kaboomObject.pos.x = elementX;
             element.kaboomObject.pos.y = elementY;
-            element.kaboomObject.color = element.attrs.background;
+            element.kaboomObject.color = toKaboomColor(kaboom, element.attrs.background);
             element.kaboomObject.width = selfWidth;
             element.kaboomObject.height = selfHeight;
             element.kaboomObject.radius = element.attrs.borderRadius;
@@ -399,10 +438,12 @@ function addElement(
             element.kaboomObject.opacity = element.attrs.opacity;
 
             if (element.attrs.outline && element.kaboomObject.outline) {
-                element.kaboomObject.outline.color = element.attrs.outline;
+                element.kaboomObject.outline.color = toKaboomColor(kaboom, element.attrs.outline);
                 element.kaboomObject.outline.width = element.attrs.outlineWidth;
             } else if (element.attrs.outline)
-                element.kaboomObject.use(outline(element.attrs.outlineWidth, element.attrs.outline));
+                element.kaboomObject.use(
+                    kaboom.outline(element.attrs.outlineWidth, toKaboomColor(kaboom, element.attrs.outline))
+                );
             else if (element.kaboomObject.outline) element.kaboomObject.unuse("outline");
         }
 
@@ -415,7 +456,7 @@ function addElement(
                 if (element.children[i] instanceof UIBoxElement && (element.children[i] as UIBoxElement).attrs.fit)
                     fitCount++;
 
-                contentWidth += calculateMinWidth(element.children[i]);
+                contentWidth += calculateMinWidth(kaboom, element.children[i]);
                 if (i !== element.children.length - 1) contentWidth += element.attrs.gap;
             }
 
@@ -430,8 +471,8 @@ function addElement(
             for (let i = 0; i < element.children.length; i++) {
                 let childX = xInset;
                 let childY = paddingTop;
-                let childWidth = calculateMinWidth(element.children[i]);
-                let childHeight = calculateMinHeight(element.children[i]);
+                let childWidth = calculateMinWidth(kaboom, element.children[i]);
+                let childHeight = calculateMinHeight(kaboom, element.children[i]);
 
                 if (element.children[i] instanceof UIBoxElement && (element.children[i] as UIBoxElement).attrs.fit)
                     childWidth += xFitSpace;
@@ -446,6 +487,7 @@ function addElement(
 
                 xInset += childWidth + element.attrs.gap;
                 addElement(
+                    kaboom,
                     ctx,
                     element.kaboomObject,
                     element.children[i],
@@ -465,7 +507,7 @@ function addElement(
                 if (element.children[i] instanceof UIBoxElement && (element.children[i] as UIBoxElement).attrs.fit)
                     fitCount++;
 
-                contentHeight += calculateMinHeight(element.children[i]);
+                contentHeight += calculateMinHeight(kaboom, element.children[i]);
                 if (i !== element.children.length - 1) contentHeight += element.attrs.gap;
             }
 
@@ -480,8 +522,8 @@ function addElement(
             for (let i = 0; i < element.children.length; i++) {
                 let childX = paddingLeft;
                 let childY = yInset;
-                let childWidth = calculateMinWidth(element.children[i]);
-                let childHeight = calculateMinHeight(element.children[i]);
+                let childWidth = calculateMinWidth(kaboom, element.children[i]);
+                let childHeight = calculateMinHeight(kaboom, element.children[i]);
 
                 if (element.children[i] instanceof UIBoxElement && (element.children[i] as UIBoxElement).attrs.fit)
                     childHeight += yFitSpace;
@@ -496,6 +538,7 @@ function addElement(
 
                 yInset += childHeight + element.attrs.gap;
                 addElement(
+                    kaboom,
                     ctx,
                     element.kaboomObject,
                     element.children[i],
@@ -512,19 +555,19 @@ function addElement(
     } else {
         if (!element.kaboomObject) {
             element.kaboomObject = parent.add([
-                text(element.text, getTextOptions(element.attrs)),
-                color(element.attrs.color),
-                pos(elementX, elementY),
-                z(depth),
-                opacity(element.attrs.opacity),
+                kaboom.text(element.text, getTextOptions(element.attrs)),
+                kaboom.color(toKaboomColor(kaboom, element.attrs.color)),
+                kaboom.pos(elementX, elementY),
+                kaboom.z(depth),
+                kaboom.opacity(element.attrs.opacity),
             ]);
 
-            if (element.attrs.onMount) element.attrs.onMount.bind(element)(element.kaboomObject);
+            element.setKaboom(kaboom);
         } else {
             element.kaboomObject.pos.x = elementX;
             element.kaboomObject.pos.y = elementY;
             element.kaboomObject.text = element.text;
-            element.kaboomObject.color = element.attrs.color;
+            element.kaboomObject.color = toKaboomColor(kaboom, element.attrs.color);
             element.kaboomObject.opacity = element.attrs.opacity;
             element.kaboomObject.textSize = element.attrs.fontSize;
             if (element.attrs.fontFamily) element.kaboomObject.font = element.attrs.fontFamily;
@@ -533,35 +576,51 @@ function addElement(
     }
 }
 
+function triggerOnMountListeners(manager: UIManager, element: UIElement) {
+    if (element instanceof UIBoxElement) {
+        if (element.attrs.onMount) element.attrs.onMount.bind(element)(element.kaboomObject!);
+        for (const child of element.children) triggerOnMountListeners(manager, child);
+    } else {
+        if (element.attrs.onMount) element.attrs.onMount.bind(element)(element.kaboomObject!);
+    }
+}
+
+export function makeUI(kaboom: KaboomCtx, generator: UIGenerator): UIManager;
 /**
  * Defines a UI function that takes a UI generator and returns an object with an add method.
  * @param generator The UI generator function.
  * @returns An object with an add method.
  */
-export function makeUI(generator: UIGenerator): UIManager {
+export function makeUI(generator: UIGenerator): UIManager;
+export function makeUI(generatorOrKaboom: UIGenerator | KaboomCtx, generator?: UIGenerator): UIManager {
     let uiTree: UIElement;
     let lastRoot: GameObj | null;
+
+    const generatorFunc = typeof generatorOrKaboom === "function" ? generatorOrKaboom : generator!;
+    const kaboom = getKaboomManager(typeof generatorOrKaboom === "function" ? undefined : generatorOrKaboom);
 
     return {
         add(parent) {
             if (lastRoot) return this.readd();
-            if (!uiTree) uiTree = generator();
+            if (!uiTree) uiTree = generatorFunc();
 
-            const uiRoot = make([fixed(), pos(0, 0)]);
+            const uiRoot = kaboom.make([kaboom.fixed(), kaboom.pos(0, 0)]);
 
-            addElement(this, uiRoot, uiTree, 1000, 0, 0);
+            addElement(kaboom, this, uiRoot, uiTree, 1000, 0, 0);
 
-            if (!parent) add(uiRoot);
+            if (!parent) kaboom.add(uiRoot);
             else parent.add(uiRoot);
+
+            triggerOnMountListeners(this, uiTree);
 
             lastRoot = uiRoot;
         },
 
         readd() {
-            const uiRoot = make([fixed(), pos(0, 0)]);
+            const uiRoot = kaboom.make([kaboom.fixed(), kaboom.pos(0, 0)]);
             // TODO: uiRoot doesn't need to be used since all the elements have real kaboom objects
             // associated with them, but I can't be bothered to remove it right now
-            addElement(this, uiRoot, uiTree, 1000, 0, 0);
+            addElement(kaboom, this, uiRoot, uiTree, 1000, 0, 0);
         },
 
         remove() {
@@ -687,9 +746,17 @@ export function $input(attrs: UIInputAttributes) {
             },
 
             onMount(object) {
+                const kaboom = this.getKaboom();
                 const cursorElement = this.getChild<UIBoxElement>(1);
                 const beforeCursor = this.getChild<UITextElement>(0);
                 const afterCursor = this.getChild<UITextElement>(2);
+
+                cursorElement.style({
+                    background: attrs.text?.color ?? kaboom.rgb(255, 255, 255),
+                    height:
+                        kaboom.formatText({ text: value.length === 0 ? " " : value, ...getTextOptions(expandedAttrs) })
+                            .height - 2,
+                });
 
                 const updateText = (text: string) => {
                     if (value !== text && attrs.onChange) attrs.onChange.bind(this)(text);
@@ -700,11 +767,11 @@ export function $input(attrs: UIInputAttributes) {
                 };
 
                 const listeners = [
-                    onUpdate(() => {
+                    kaboom.onUpdate(() => {
                         if (!isFocused) return;
                         if (attrs.onFocusUpdate) attrs.onFocusUpdate.bind(this)();
 
-                        lastSwitch += dt() * 1000;
+                        lastSwitch += kaboom.dt() * 1000;
 
                         if (lastSwitch >= 700) {
                             isBlinked = !isBlinked;
@@ -713,7 +780,7 @@ export function $input(attrs: UIInputAttributes) {
                         }
                     }),
 
-                    onClick(() => {
+                    kaboom.onClick(() => {
                         if (object.isHovering()) return;
                         if (attrs.onBlur) attrs.onBlur.bind(this)();
 
@@ -724,7 +791,7 @@ export function $input(attrs: UIInputAttributes) {
                         isFocused = false;
                     }),
 
-                    onKeyPressRepeat("left", () => {
+                    kaboom.onKeyPressRepeat("left", () => {
                         if (!isFocused || cursorPos === 0) return;
 
                         isBlinked = true;
@@ -735,7 +802,7 @@ export function $input(attrs: UIInputAttributes) {
                         updateText(value);
                     }),
 
-                    onKeyPressRepeat("right", () => {
+                    kaboom.onKeyPressRepeat("right", () => {
                         if (!isFocused || cursorPos === value.length) return;
 
                         isBlinked = true;
@@ -746,7 +813,7 @@ export function $input(attrs: UIInputAttributes) {
                         updateText(value);
                     }),
 
-                    onKeyPressRepeat("backspace", () => {
+                    kaboom.onKeyPressRepeat("backspace", () => {
                         if (!isFocused || cursorPos === 0) return;
 
                         isBlinked = true;
@@ -757,7 +824,7 @@ export function $input(attrs: UIInputAttributes) {
                         updateText(value.substring(0, cursorPos) + value.substring(cursorPos + 1));
                     }),
 
-                    onCharInput((ch) => {
+                    kaboom.onCharInput((ch) => {
                         if (!isFocused) return;
 
                         isBlinked = true;
@@ -765,7 +832,7 @@ export function $input(attrs: UIInputAttributes) {
                         cursorElement.style({ opacity: 1 });
 
                         cursorPos++;
-                        if (isKeyDown("shift")) ch = ch.toUpperCase();
+                        if (kaboom.isKeyDown("shift")) ch = ch.toUpperCase();
                         updateText(value.substring(0, cursorPos - 1) + ch + value.substring(cursorPos - 1));
                     }),
                 ];
@@ -777,9 +844,7 @@ export function $input(attrs: UIInputAttributes) {
         $text(value, attrs.text),
         $box({
             opacity: 0,
-            background: attrs.text?.color ?? rgb(255, 255, 255),
             width: 0,
-            height: formatText({ text: value.length === 0 ? " " : value, ...getTextOptions(expandedAttrs) }).height - 2,
             cursor: "text",
         }),
         $text("", attrs.text)

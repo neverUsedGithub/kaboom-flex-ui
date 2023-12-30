@@ -47,6 +47,8 @@ with the text "Hello, World!".
 ## :toolbox: Functions
 
 - [makeUI](#gear-makeui)
+- [makeUI](#gear-makeui)
+- [makeUI](#gear-makeui)
 - [$box](#gear-$box)
 - [$box](#gear-$box)
 - [$box](#gear-$box)
@@ -62,7 +64,33 @@ Defines a UI function that takes a UI generator and returns an object with an ad
 
 | Function | Type |
 | ---------- | ---------- |
-| `makeUI` | `(generator: UIGenerator) => UIManager` |
+| `makeUI` | `{ (kaboom: KaboomCtx, generator: UIGenerator): UIManager; (generator: UIGenerator): UIManager; }` |
+
+Parameters:
+
+* `generator`: The UI generator function.
+
+
+### :gear: makeUI
+
+Defines a UI function that takes a UI generator and returns an object with an add method.
+
+| Function | Type |
+| ---------- | ---------- |
+| `makeUI` | `{ (kaboom: KaboomCtx, generator: UIGenerator): UIManager; (generator: UIGenerator): UIManager; }` |
+
+Parameters:
+
+* `generator`: The UI generator function.
+
+
+### :gear: makeUI
+
+Defines a UI function that takes a UI generator and returns an object with an add method.
+
+| Function | Type |
+| ---------- | ---------- |
+| `makeUI` | `{ (kaboom: KaboomCtx, generator: UIGenerator): UIManager; (generator: UIGenerator): UIManager; }` |
 
 Parameters:
 
@@ -161,7 +189,7 @@ Parameters:
 
 | Function | Type |
 | ---------- | ---------- |
-| `default` | `(ctx: KaboomCtx) => { readonly makeUI: (generator: UIGenerator) => UIManager; readonly $box: { (...children: UIElement[]): UIBoxElement; (attrs: Partial<...>, ...children: UIElement[]): UIBoxElement; }; readonly $button: (text: string, attrs: UIButtonAttributes) => UIBoxElement; readonly $text: (text: string, attrs?...` |
+| `default` | `(ctx: KaboomCtx) => { readonly makeUI: { (kaboom: KaboomCtx, generator: UIGenerator): UIManager; (generator: UIGenerator): UIManager; }; ... 4 more ...; readonly $input: (attrs: UIInputAttributes) => UIBoxElement; }` |
 
 
 ## :factory: UITextElement
@@ -173,6 +201,8 @@ Represents a UI text element with specified attributes.
 - [setParent](#gear-setparent)
 - [style](#gear-style)
 - [setText](#gear-settext)
+- [setKaboom](#gear-setkaboom)
+- [getKaboom](#gear-getkaboom)
 
 #### :gear: setParent
 
@@ -192,6 +222,18 @@ Represents a UI text element with specified attributes.
 | ---------- | ---------- |
 | `setText` | `(text: string) => void` |
 
+#### :gear: setKaboom
+
+| Method | Type |
+| ---------- | ---------- |
+| `setKaboom` | `(kaboom: KaboomCtx) => void` |
+
+#### :gear: getKaboom
+
+| Method | Type |
+| ---------- | ---------- |
+| `getKaboom` | `() => KaboomCtx` |
+
 
 ## :factory: UIBoxElement
 
@@ -203,6 +245,8 @@ Represents a UI box element with specified attributes and children elements.
 - [setParent](#gear-setparent)
 - [style](#gear-style)
 - [getChild](#gear-getchild)
+- [setKaboom](#gear-setkaboom)
+- [getKaboom](#gear-getkaboom)
 
 #### :gear: triggerListener
 
@@ -227,6 +271,18 @@ Represents a UI box element with specified attributes and children elements.
 | Method | Type |
 | ---------- | ---------- |
 | `getChild` | `<U extends UIElement = UIElement>(nth: number) => UIElementPublic<U>` |
+
+#### :gear: setKaboom
+
+| Method | Type |
+| ---------- | ---------- |
+| `setKaboom` | `(kaboom: KaboomCtx) => void` |
+
+#### :gear: getKaboom
+
+| Method | Type |
+| ---------- | ---------- |
+| `getKaboom` | `() => KaboomCtx` |
 
 
 <!-- TSDOC_END -->
