@@ -60,7 +60,10 @@ with the text "Hello, World!".
 
 ### :gear: makeUI
 
-Defines a UI function that takes a UI generator and returns an object with an add method.
+Takes in a Kaboom context and a UI generator function, returning a UI manager.
+The UI manager allows addition, removal, and re-addition of UI elements.
+Takes in a UI generator function that creates a UI element and returns a UI manager.
+The UI manager enables addition, removal, and re-addition of the UI.
 
 | Function | Type |
 | ---------- | ---------- |
@@ -68,12 +71,17 @@ Defines a UI function that takes a UI generator and returns an object with an ad
 
 Parameters:
 
-* `generator`: The UI generator function.
+* `kaboom`: The Kaboom context used for UI creation.
+* `generator`: The UI generator function that generates a UI element.
+* `generator`: The UI generator function that generates a UI element.
 
 
 ### :gear: makeUI
 
-Defines a UI function that takes a UI generator and returns an object with an add method.
+Takes in a Kaboom context and a UI generator function, returning a UI manager.
+The UI manager allows addition, removal, and re-addition of UI elements.
+Takes in a UI generator function that creates a UI element and returns a UI manager.
+The UI manager enables addition, removal, and re-addition of the UI.
 
 | Function | Type |
 | ---------- | ---------- |
@@ -81,12 +89,17 @@ Defines a UI function that takes a UI generator and returns an object with an ad
 
 Parameters:
 
-* `generator`: The UI generator function.
+* `kaboom`: The Kaboom context used for UI creation.
+* `generator`: The UI generator function that generates a UI element.
+* `generator`: The UI generator function that generates a UI element.
 
 
 ### :gear: makeUI
 
-Defines a UI function that takes a UI generator and returns an object with an add method.
+Takes in a Kaboom context and a UI generator function, returning a UI manager.
+The UI manager allows addition, removal, and re-addition of UI elements.
+Takes in a UI generator function that creates a UI element and returns a UI manager.
+The UI manager enables addition, removal, and re-addition of the UI.
 
 | Function | Type |
 | ---------- | ---------- |
@@ -94,7 +107,9 @@ Defines a UI function that takes a UI generator and returns an object with an ad
 
 Parameters:
 
-* `generator`: The UI generator function.
+* `kaboom`: The Kaboom context used for UI creation.
+* `generator`: The UI generator function that generates a UI element.
+* `generator`: The UI generator function that generates a UI element.
 
 
 ### :gear: $box
@@ -175,21 +190,42 @@ Parameters:
 
 ### :gear: $checkbox
 
+Represents a checkbox element generator function.
+
 | Function | Type |
 | ---------- | ---------- |
 | `$checkbox` | `(attrs: UICheckboxAttributes) => UIBoxElement` |
 
+Parameters:
+
+* `attrs`: The attributes for the checkbox element.
+
+
 ### :gear: $input
+
+Represents an input element generator function.
 
 | Function | Type |
 | ---------- | ---------- |
 | `$input` | `(attrs: UIInputAttributes) => UIBoxElement` |
 
+Parameters:
+
+* `attrs`: The attributes for the input element.
+
+
 ### :gear: default
+
+A plugin that provides UI generation functionality.
 
 | Function | Type |
 | ---------- | ---------- |
 | `default` | `(ctx: KaboomCtx) => { readonly makeUI: { (kaboom: KaboomCtx, generator: UIGenerator): UIManager; (generator: UIGenerator): UIManager; }; ... 4 more ...; readonly $input: (attrs: UIInputAttributes) => UIBoxElement; }` |
+
+Parameters:
+
+* `ctx`: The Kaboom context.
+
 
 
 ## :factory: UITextElement

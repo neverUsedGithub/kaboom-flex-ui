@@ -14,6 +14,9 @@ import {
     ZComp,
 } from "kaboom";
 
+/**
+ * Represents a cursor type.
+ */
 export type StrictCursor =
     | "auto"
     | "default"
@@ -52,6 +55,9 @@ export type StrictCursor =
     | "zoom-int"
     | "zoom-out";
 
+/**
+ * Represents a color in UI.
+ */
 export type UIColor = Color | [number, number, number];
 
 /**
@@ -104,6 +110,9 @@ export interface UIButtonAttributes extends Partial<UIBoxAttributes> {
     text?: Partial<UITextAttributes>;
 }
 
+/**
+ * Represents attributes for a UI checkbox element.
+ */
 export interface UICheckboxAttributes extends Partial<UIBoxAttributes> {
     text?: Partial<UITextAttributes>;
     checked?: boolean;
@@ -111,6 +120,9 @@ export interface UICheckboxAttributes extends Partial<UIBoxAttributes> {
     onCheck?: (this: UIElementPublic<UIBoxElement>, isChecked: boolean) => any;
 }
 
+/**
+ * Represents attributes for a UI input element.
+ */
 export interface UIInputAttributes extends Partial<UIBoxAttributes> {
     text?: Partial<UITextAttributes>;
     value?: string;
@@ -126,6 +138,9 @@ export interface UIInputAttributes extends Partial<UIBoxAttributes> {
  */
 export type UIElement = UIBoxElement | UITextElement;
 
+/**
+ * Represents a public interface for a UI element.
+ */
 export type UIElementPublic<T extends UIElement = UIElement> = T extends UIBoxElement
     ? {
           style: (attrs: Partial<UIBoxAttributes>) => void;
@@ -138,6 +153,9 @@ export type UIElementPublic<T extends UIElement = UIElement> = T extends UIBoxEl
           getKaboom: () => KaboomCtx;
       };
 
+/**
+ * Represents a UI manager.
+ */
 export interface UIManager {
     add: (parent?: GameObj) => void;
     readd: () => void;
@@ -585,13 +603,23 @@ function triggerOnMountListeners(manager: UIManager, element: UIElement) {
     }
 }
 
-export function makeUI(kaboom: KaboomCtx, generator: UIGenerator): UIManager;
 /**
- * Defines a UI function that takes a UI generator and returns an object with an add method.
- * @param generator The UI generator function.
- * @returns An object with an add method.
+ * Takes in a Kaboom context and a UI generator function, returning a UI manager.
+ * The UI manager allows addition, removal, and re-addition of UI elements.
+ * @param kaboom The Kaboom context used for UI creation.
+ * @param generator The UI generator function that generates a UI element.
+ * @returns A UI manager with methods to add, remove, and re-add UI elements.
+ */
+export function makeUI(kaboom: KaboomCtx, generator: UIGenerator): UIManager;
+
+/**
+ * Takes in a UI generator function that creates a UI element and returns a UI manager.
+ * The UI manager enables addition, removal, and re-addition of the UI.
+ * @param generator The UI generator function that generates a UI element.
+ * @returns A UI manager with methods to add, remove, and re-add UI elements.
  */
 export function makeUI(generator: UIGenerator): UIManager;
+
 export function makeUI(generatorOrKaboom: UIGenerator | KaboomCtx, generator?: UIGenerator): UIManager {
     let uiTree: UIElement;
     let lastRoot: GameObj | null;
@@ -687,6 +715,11 @@ export function $button(text: string, attrs: UIButtonAttributes) {
     return el;
 }
 
+/**
+ * Represents a checkbox element generator function.
+ * @param attrs The attributes for the checkbox element.
+ * @returns A UI box element acting as a checkbox.
+ */
 export function $checkbox(attrs: UICheckboxAttributes) {
     let isChecked = attrs.checked ?? false;
 
@@ -711,6 +744,11 @@ export function $checkbox(attrs: UICheckboxAttributes) {
     });
 }
 
+/**
+ * Represents an input element generator function.
+ * @param attrs The attributes for the input element.
+ * @returns A UI box element acting as an input.
+ */
 export function $input(attrs: UIInputAttributes) {
     const expandedAttrs: UITextAttributes = Object.assign({}, getDefaultTextProperties(), attrs.text);
     const cursorWidth = 2;
@@ -851,6 +889,11 @@ export function $input(attrs: UIInputAttributes) {
     );
 }
 
+/**
+ * A plugin that provides UI generation functionality.
+ * @param ctx The Kaboom context.
+ * @returns UI generation functions.
+ */
 export default function flexUIPlugin(ctx: KaboomCtx) {
     return {
         makeUI,
